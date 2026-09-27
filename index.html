@@ -275,11 +275,15 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Make</label>
-              <input type="text" id="make" required placeholder="NISSAN" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+              <select id="make" required class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Make</option>
+              </select>
             </div>
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Model / Trim</label>
-              <input type="text" id="model" required placeholder="SKYLINE GT-R" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+              <select id="model" required class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Model</option>
+              </select>
             </div>
           </div>
 
@@ -299,7 +303,9 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Colour</label>
-              <input type="text" id="colour" required placeholder="BAYSIDE BLUE" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+              <select id="colour" required class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Colour</option>
+              </select>
             </div>
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Mileage (km)</label>
@@ -310,11 +316,15 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Auction House</label>
-              <input type="text" id="auctionHouse" placeholder="USS Tokyo" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+              <select id="auctionHouse" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Auction House</option>
+              </select>
             </div>
             <div>
               <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Score / Grade</label>
-              <input type="text" id="score" placeholder="4.5" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+              <select id="score" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Score</option>
+              </select>
             </div>
           </div>
 
@@ -1099,6 +1109,38 @@
       updateSelectOptions('filterColour', colours);
     }
 
+    function populateFormDropdowns() {
+      const units = getActiveProfileData().units;
+
+      const makes = units.length > 0 ? [...new Set(units.map(u => u.make))] : ['NISSAN', 'TOYOTA', 'MAZDA', 'HONDA', 'SUBARU', 'MITSUBISHI'];
+      const models = units.length > 0 ? [...new Set(units.map(u => u.model))] : ['SKYLINE GT-R', 'SUPRA', 'RX-7', 'NSX', 'IMPREZA WRX', 'LANCER EVOLUTION'];
+      const colours = units.length > 0 ? [...new Set(units.map(u => u.colour))] : ['BAYSIDE BLUE', 'MIDNIGHT PURPLE', 'CHAMPIONSHIP WHITE', 'SILVER', 'BLACK', 'RALLY RED'];
+      const auctionHouses = units.length > 0 ? [...new Set(units.map(u => u.auctionHouse).filter(Boolean))] : ['USS Tokyo', 'USS Osaka', 'CAA Chubu', 'TAA Yokohama', 'JU Saitama'];
+      const scores = units.length > 0 ? [...new Set(units.map(u => u.score).filter(Boolean))] : ['5', '4.5', '4', '3.5', '3', 'R', 'RA'];
+
+      updateFormSelect('make', makes, 'Select Make');
+      updateFormSelect('model', models, 'Select Model');
+      updateFormSelect('colour', colours, 'Select Colour');
+      updateFormSelect('auctionHouse', auctionHouses, 'Select Auction House');
+      updateFormSelect('score', scores, 'Select Score');
+    }
+
+    function updateFormSelect(id, values, defaultText) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const currentVal = el.value;
+      el.innerHTML = `<option value="" disabled selected>${defaultText}</option>`;
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        el.appendChild(opt);
+      });
+      if (values.includes(currentVal)) {
+        el.value = currentVal;
+      }
+    }
+
     function updateSelectOptions(id, values) {
       const el = document.getElementById(id);
       const currentVal = el.value;
@@ -1158,6 +1200,7 @@
       localStorage.setItem('skyline_active_profile', activeProfile);
       populateProfileDropdown();
       populateFilterDropdowns();
+      populateFormDropdowns();
       renderAll();
     }
 
