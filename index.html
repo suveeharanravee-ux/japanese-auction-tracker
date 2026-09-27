@@ -3,182 +3,452 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Japanese Auction Unit Bidding & Trend Tracker</title>
+  <title>JAPANESE Auction Intelligence</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+  <!-- SheetJS Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,800;1,400;1,800&family=JetBrains+Mono:wght@400;700&display=swap');
 
-  <div class="max-w-7xl mx-auto space-y-6">
-    <!-- Header -->
-    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-blue-400">JDM Auction Intelligence</h1>
-        <p class="text-sm text-slate-400">Track bids, analyze winning rates, and study hammer price trends</p>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #060508;
+      overflow-x: hidden;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    @keyframes floatOrb1 {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-15px) scale(1.05); }
+    }
+    @keyframes floatOrb2 {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(20px) scale(0.95); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-float-1 { animation: floatOrb1 8s ease-in-out infinite; }
+    .animate-float-2 { animation: floatOrb2 10s ease-in-out infinite; }
+    .fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    .glass-panel {
+      background: rgba(14, 10, 16, 0.82);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-panel:hover {
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .glass-input {
+      background: rgba(8, 6, 10, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-input:focus {
+      border-color: rgba(239, 68, 68, 0.8);
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.25), inset 0 0 12px rgba(239, 68, 68, 0.1);
+    }
+
+    select option {
+      background-color: #0e0a10;
+      color: #f4f4f5;
+    }
+
+    /* Background Canvas */
+    #jdmBgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 10;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060508;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(239, 68, 68, 0.6);
+    }
+  </style>
+</head>
+<body class="text-zinc-100 min-h-screen p-4 md:p-8 selection:bg-red-500 selection:text-zinc-950">
+
+  <!-- Interactive Animated Skyline & Evo 8 Background Canvas -->
+  <canvas id="jdmBgCanvas"></canvas>
+
+  <!-- Background Ambient Glow Orbs -->
+  <div class="fixed top-10 left-10 w-96 h-96 bg-red-600/10 rounded-full blur-[140px] pointer-events-none animate-float-1 z-0"></div>
+  <div class="fixed bottom-10 right-10 w-96 h-96 bg-amber-600/10 rounded-full blur-[140px] pointer-events-none animate-float-2 z-0"></div>
+
+  <div class="max-w-7xl mx-auto space-y-6 app-container">
+    
+    <!-- Header Command Bar -->
+    <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 glass-panel p-6 rounded-3xl relative overflow-hidden">
+      <div class="absolute -right-16 -top-16 w-56 h-56 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex items-center gap-4">
+        <div class="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-amber-500/20 border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+          <div class="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444] animate-ping"></div>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-red-200 to-amber-400 uppercase">Japanese Auction Intelligence</h1>
+          <p class="text-xs font-semibold text-zinc-400 mt-0.5 tracking-wider">Dynamic Target Tracking & Briefings</p>
+        </div>
       </div>
-      <div class="flex gap-3">
-        <button onclick="loadSampleData()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold tracking-wide transition">Load Sample Data</button>
-        <button onclick="clearAllData()" class="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded-lg text-xs font-semibold tracking-wide border border-red-700 transition">Clear All</button>
+      
+      <div class="flex flex-wrap gap-3 items-center">
+        <!-- Profile Selector with Create & Delete Buttons -->
+        <div class="flex items-center gap-2.5 glass-input px-3.5 py-2 rounded-2xl">
+          <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Node:</label>
+          <select id="profileSelect" onchange="switchProfile(this.value)" class="bg-transparent text-xs font-bold text-red-400 focus:outline-none cursor-pointer">
+            <!-- Dynamic Profiles -->
+          </select>
+          <button onclick="createNewProfile()" class="px-2.5 py-1 bg-gradient-to-r from-red-500 to-amber-600 hover:from-red-400 hover:to-amber-500 text-zinc-950 rounded-xl text-[10px] font-black uppercase tracking-wider transition ml-1 shadow-md shadow-red-500/25 active:scale-95" title="Create New Profile">+ New</button>
+          <button onclick="deleteCurrentProfile()" class="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 border border-rose-800/40 rounded-xl text-[10px] font-black uppercase tracking-wider transition ml-1 active:scale-95" title="Delete Active Profile">Delete</button>
+        </div>
+
+        <!-- Excel Upload Button -->
+        <label class="px-4 py-2.5 bg-gradient-to-r from-red-500 via-rose-600 to-amber-500 hover:from-red-400 hover:to-amber-400 text-zinc-950 rounded-2xl text-xs font-extrabold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-2 shadow-lg shadow-red-500/30 active:scale-95 hover:shadow-[0_0_25px_rgba(239,68,68,0.5)]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          Import Excel / CSV
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv, .txt" onchange="handleFileUpload(event)" class="hidden">
+        </label>
+
+        <button onclick="loadSampleData()" class="px-4 py-2.5 glass-panel hover:bg-white/[0.08] text-zinc-200 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 border border-white/10">Load Sample</button>
+        <button onclick="clearAllData()" class="px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-2xl text-xs font-bold uppercase tracking-wider border border-rose-800/40 transition-all duration-300 active:scale-95">Clear Node</button>
       </div>
     </header>
 
-    <!-- KPI Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
-        <span class="text-xs uppercase font-bold text-slate-400">Total Bids</span>
-        <div id="kpiTotal" class="text-3xl font-extrabold mt-1 text-white">0</div>
+    <!-- Interactive Won Units Target Widget -->
+    <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.12)]">
+      <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-red-600/10 rounded-full blur-2xl pointer-events-none"></div>
+      
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 font-black font-mono text-lg shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+          🏎️
+        </div>
+        <div>
+          <h2 class="text-sm font-black text-white uppercase tracking-wider">Acquisition Target: Won Units</h2>
+          <p class="text-xs text-zinc-400 mt-0.5">Set and track your target wins for profile <span id="targetProfileName" class="text-red-400 font-bold">Default</span></p>
+        </div>
       </div>
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
-        <span class="text-xs uppercase font-bold text-slate-400">Units Won</span>
-        <div id="kpiWon" class="text-3xl font-extrabold mt-1 text-emerald-400">0</div>
+
+      <div class="flex-1 max-w-md w-full space-y-2">
+        <div class="flex justify-between items-center text-xs font-mono">
+          <span id="targetProgressText" class="text-zinc-300 font-bold">0 / 5 Won Units</span>
+          <span id="targetPercentage" class="text-red-400 font-bold">0%</span>
+        </div>
+        <div class="w-full bg-zinc-900/80 rounded-full h-3 p-0.5 border border-white/10 relative overflow-hidden">
+          <div id="targetProgressBar" class="bg-gradient-to-r from-red-500 to-amber-500 h-full rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(239,68,68,0.6)]" style="width: 0%"></div>
+        </div>
       </div>
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
-        <span class="text-xs uppercase font-bold text-slate-400">Win Rate</span>
-        <div id="kpiWinRate" class="text-3xl font-extrabold mt-1 text-blue-400">0.0%</div>
-      </div>
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
-        <span class="text-xs uppercase font-bold text-slate-400">Avg Won Margin</span>
-        <div id="kpiAvgMargin" class="text-3xl font-extrabold mt-1 text-amber-400">¥0</div>
+
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 glass-input px-3.5 py-2 rounded-2xl">
+          <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Target:</label>
+          <input type="number" id="userTargetInput" min="1" max="100" onchange="updateTarget(this.value)" class="w-16 bg-transparent text-xs font-mono font-bold text-red-400 focus:outline-none">
+        </div>
       </div>
     </div>
 
-    <!-- Main Content: Form & Charts -->
+    <!-- Telemetry Daily Briefing (Personally Curated AI Summary) -->
+    <div class="glass-panel p-6 rounded-3xl relative overflow-hidden border border-amber-500/30 shadow-[0_0_35px_rgba(245,158,11,0.1)]">
+      <div class="absolute right-0 top-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-amber-400 uppercase italic tracking-wider flex items-center gap-2">
+          <span class="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_12px_#fbbf24] animate-pulse"></span>
+          Daily Briefing Summary & Insights
+        </h2>
+        <span id="briefingDate" class="text-[11px] font-mono text-zinc-400"></span>
+      </div>
+      <div id="aiBriefingContent" class="text-xs text-zinc-300 leading-relaxed font-medium space-y-2">
+        <!-- Dynamically injected summary -->
+      </div>
+    </div>
+
+    <!-- Matrix Filter Bar -->
+    <div class="glass-panel p-4 rounded-3xl flex flex-wrap gap-4 items-center">
+      <span class="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-amber-400 uppercase tracking-widest flex items-center gap-2">
+        <svg class="w-4 h-4 inline-block text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+        Matrix Filters:
+      </span>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">Make:</label>
+        <select id="filterMake" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white focus:outline-none cursor-pointer">
+          <option value="ALL">All Makes</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">Chassis:</label>
+        <select id="filterChassis" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white focus:outline-none cursor-pointer">
+          <option value="ALL">All Chassis</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">Year:</label>
+        <select id="filterYear" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white focus:outline-none cursor-pointer">
+          <option value="ALL">All Years</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">Colour:</label>
+        <select id="filterColour" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white focus:outline-none cursor-pointer">
+          <option value="ALL">All Colours</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">From:</label>
+        <input type="date" id="filterDateFrom" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white font-mono focus:outline-none cursor-pointer">
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-400 font-semibold uppercase">To:</label>
+        <input type="date" id="filterDateTo" onchange="renderAll()" class="glass-input text-xs rounded-xl p-2 text-white font-mono focus:outline-none cursor-pointer">
+      </div>
+      <button onclick="resetFilters()" class="text-xs font-bold text-red-400 hover:text-red-300 underline ml-auto transition">Reset Matrix</button>
+    </div>
+
+    <!-- Glowing KPI Summary Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] transition-all duration-300">
+        <div class="absolute top-0 right-0 w-28 h-28 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/20 transition"></div>
+        <span class="text-[10px] uppercase font-black tracking-widest text-zinc-400">Total Units</span>
+        <div id="kpiTotal" class="text-3xl font-black mt-2 text-white font-mono">0</div>
+      </div>
+      <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(16,185,129,0.2)] transition-all duration-300">
+        <div class="absolute top-0 right-0 w-28 h-28 bg-emerald-400/10 rounded-full blur-2xl group-hover:bg-emerald-400/20 transition"></div>
+        <span class="text-[10px] uppercase font-black tracking-widest text-zinc-400">Units Won</span>
+        <div id="kpiWon" class="text-3xl font-black mt-2 text-emerald-400 font-mono">0</div>
+      </div>
+      <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] transition-all duration-300">
+        <div class="absolute top-0 right-0 w-28 h-28 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/20 transition"></div>
+        <span class="text-[10px] uppercase font-black tracking-widest text-zinc-400">Win Rate %</span>
+        <div id="kpiWinRate" class="text-3xl font-black mt-2 text-red-400 font-mono">0.0%</div>
+      </div>
+      <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] transition-all duration-300">
+        <div class="absolute top-0 right-0 w-28 h-28 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition"></div>
+        <span class="text-[10px] uppercase font-black tracking-widest text-zinc-400">Total Won (¥)</span>
+        <div id="kpiTotalWonAmount" class="text-3xl font-black mt-2 text-amber-400 font-mono">¥0</div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       
-      <!-- Entry Form -->
-      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
-        <h2 class="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">Log Auction Unit</h2>
-        <form id="unitForm" onsubmit="handleFormSubmit(event)" class="space-y-3">
+      <!-- Manual Entry Form -->
+      <div class="glass-panel p-6 rounded-3xl shadow-2xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-5 border-b border-white/5 pb-3">
+          <h2 class="text-sm font-black text-white uppercase italic tracking-wider flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-pulse"></span>
+            Log Auction Unit
+          </h2>
+        </div>
+        
+        <form id="unitForm" onsubmit="handleFormSubmit(event)" class="space-y-3.5">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-400">Make</label>
-              <input type="text" id="make" required placeholder="Toyota" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Make</label>
+              <input type="text" id="make" required placeholder="NISSAN" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-400">Model</label>
-              <input type="text" id="model" required placeholder="Supra" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Model / Trim</label>
+              <input type="text" id="model" required placeholder="SKYLINE GT-R" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-400">Chassis Code</label>
-              <input type="text" id="chassis" required placeholder="JZA80" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Chassis Code</label>
+              <input type="text" id="chassis" required placeholder="BNR34" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-400">Year</label>
-              <input type="number" id="year" required placeholder="1998" min="1950" max="2027" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-400">Colour</label>
-              <input type="text" id="colour" required placeholder="Pearl White" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-400">Mileage (km)</label>
-              <input type="number" id="mileage" required placeholder="85000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-400">Auction House</label>
-              <select id="auctionHouse" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
-                <option value="USS Tokyo">USS Tokyo</option>
-                <option value="TAA Yokohama">TAA Yokohama</option>
-                <option value="HAA Kobe">HAA Kobe</option>
-                <option value="JU Gifu">JU Gifu</option>
-                <option value="CAA Chubu">CAA Chubu</option>
-                <option value="Arai Auto">Arai Auto</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-400">Score / Grade</label>
-              <select id="score" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
-                <option value="S">Grade S</option>
-                <option value="6">Grade 6</option>
-                <option value="5">Grade 5</option>
-                <option value="4.5">Grade 4.5</option>
-                <option value="4">Grade 4</option>
-                <option value="3.5">Grade 3.5</option>
-                <option value="3">Grade 3</option>
-                <option value="R/RA">Grade R/RA</option>
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Year</label>
+              <select id="year" required class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="" disabled selected>Select Year</option>
               </select>
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-400">Your Bid (¥)</label>
-              <input type="number" id="yourBid" required placeholder="3500000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Colour</label>
+              <input type="text" id="colour" required placeholder="BAYSIDE BLUE" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-400">Winning Price (¥)</label>
-              <input type="number" id="winningPrice" required placeholder="3400000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Mileage (km)</label>
+              <input type="number" id="mileage" required placeholder="35000" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-400">Bid Outcome</label>
-              <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Auction House</label>
+              <input type="text" id="auctionHouse" placeholder="USS Tokyo" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Score / Grade</label>
+              <input type="text" id="score" placeholder="4.5" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Sold Price (¥)</label>
+              <input type="number" id="soldPrice" required placeholder="12500000" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none font-mono">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Proxy Bid (¥)</label>
+              <input type="number" id="proxyBid" placeholder="14000000" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none font-mono">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Bid Outcome</label>
+              <select id="status" class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none cursor-pointer">
+                <option value="AUTO">AUTO (Calculated)</option>
                 <option value="WON">WON</option>
+                <option value="SOLD">SOLD</option>
                 <option value="LOST">LOST</option>
                 <option value="PASSED">PASSED</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-400">Auction Date</label>
-              <input type="date" id="auctionDate" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Auction Date</label>
+              <input type="date" id="auctionDate" required class="w-full glass-input rounded-2xl p-3 text-xs text-white focus:outline-none font-mono cursor-pointer">
             </div>
           </div>
 
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2 px-4 rounded text-sm text-white transition mt-2">Add Auction Record</button>
+          <button type="submit" class="w-full bg-gradient-to-r from-red-500 via-rose-600 to-amber-500 hover:from-red-400 hover:to-amber-400 text-zinc-950 font-black py-3.5 px-4 rounded-2xl text-xs uppercase tracking-widest transition-all duration-300 shadow-xl shadow-red-500/25 active:scale-95 hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] mt-3">
+            + Add Auction Record
+          </button>
         </form>
       </div>
 
       <!-- Visualization Section -->
       <div class="lg:col-span-2 space-y-6">
-        <!-- Chart 1: Price Trend -->
-        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
-          <h2 class="text-lg font-bold text-white mb-4">Price Trend (Winning Hammer Price vs. Your Max Bid)</h2>
-          <div class="h-64 relative">
+        <div class="glass-panel p-6 rounded-3xl relative">
+          <h2 class="text-sm font-black text-white uppercase italic tracking-wider mb-4 flex items-center justify-between">
+            <span>Price Trend & Aero Telemetry Analysis</span>
+            <span class="text-[10px] font-mono text-red-400">Sold Price vs Proxy Bid</span>
+          </h2>
+          <div class="h-60 relative flex items-center justify-center">
             <canvas id="priceTrendChart"></canvas>
+            <div id="priceEmptyMsg" class="hidden absolute inset-0 flex items-center justify-center text-xs font-mono text-zinc-500 uppercase tracking-widest">
+              No auction price telemetry recorded yet
+            </div>
           </div>
         </div>
 
-        <!-- Chart 2: Outcome Ratio -->
-        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
-          <h2 class="text-lg font-bold text-white mb-4">Bid Win / Loss Breakdown</h2>
-          <div class="h-48 relative">
+        <div class="glass-panel p-6 rounded-3xl relative">
+          <h2 class="text-sm font-black text-white uppercase italic tracking-wider mb-4 flex items-center justify-between">
+            <span>Bid Win / Loss Breakdown</span>
+          </h2>
+          <div class="h-44 relative flex items-center justify-center">
             <canvas id="winLossChart"></canvas>
+            <div id="winLossEmptyMsg" class="hidden absolute inset-0 flex items-center justify-center text-xs font-mono text-zinc-500 uppercase tracking-widest">
+              No bid outcomes recorded yet
+            </div>
           </div>
         </div>
       </div>
 
     </div>
 
+    <!-- Bulk Action Toolbar -->
+    <div id="bulkActionBar" class="hidden glass-panel p-4 rounded-3xl flex flex-wrap items-center gap-4 border border-red-500/40 bg-red-950/20 shadow-[0_0_30px_rgba(239,68,68,0.15)] transition-all fade-in">
+      <div class="flex items-center gap-2.5">
+        <span class="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-ping"></span>
+        <span class="text-xs font-black text-red-400 uppercase tracking-wider" id="selectedCountText">0 units selected</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-300 font-bold uppercase">New Date for Selected:</label>
+        <input type="date" id="bulkDateInput" class="glass-input text-xs rounded-2xl p-2.5 text-white font-mono focus:outline-none cursor-pointer">
+      </div>
+      <button onclick="applyBulkDate()" class="px-4.5 py-2.5 bg-gradient-to-r from-red-500 to-amber-500 hover:from-red-400 hover:to-amber-400 text-zinc-950 font-black rounded-2xl text-xs uppercase tracking-wider transition shadow-lg shadow-red-500/25 active:scale-95">
+        Apply Date to Selected
+      </button>
+      <button onclick="clearSelection()" class="text-xs text-zinc-400 hover:text-white underline ml-auto transition">Deselect All</button>
+    </div>
+
     <!-- Data Table -->
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow overflow-x-auto">
-      <h2 class="text-lg font-bold text-white mb-4">Logged Units</h2>
-      <table class="w-full text-left text-xs text-slate-300">
-        <thead class="bg-slate-900 text-slate-400 uppercase font-semibold">
+    <div class="glass-panel p-6 rounded-3xl overflow-x-auto shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-black text-white uppercase italic tracking-wider">Logged Units Grid</h2>
+        <span class="text-xs font-mono text-red-400" id="tableCountBadge">Showing all records</span>
+      </div>
+      <table class="w-full text-left text-xs text-zinc-300">
+        <thead class="bg-black/50 text-zinc-400 uppercase font-black tracking-wider border-b border-white/10">
           <tr>
-            <th class="p-3">Date</th>
-            <th class="p-3">Vehicle</th>
-            <th class="p-3">Chassis</th>
-            <th class="p-3">Color / km</th>
-            <th class="p-3">Venue / Score</th>
-            <th class="p-3">Your Bid</th>
-            <th class="p-3">Winning Price</th>
-            <th class="p-3">Status</th>
-            <th class="p-3 text-right">Action</th>
+            <th class="p-3.5 rounded-l-2xl w-10 text-center">
+              <input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)" class="cursor-pointer accent-red-500">
+            </th>
+            <th class="p-3.5">Date (Editable)</th>
+            <th class="p-3.5">Vehicle</th>
+            <th class="p-3.5">Chassis</th>
+            <th class="p-3.5">Colour / Mileage</th>
+            <th class="p-3.5">Venue / Score</th>
+            <th class="p-3.5">Sold Price</th>
+            <th class="p-3.5">Proxy Bid</th>
+            <th class="p-3.5">Difference (¥)</th>
+            <th class="p-3.5">Status / Action</th>
+            <th class="p-3.5 text-right rounded-r-2xl">Delete</th>
+          </tr>
+          <!-- Column Filter Inputs Row -->
+          <tr class="border-t border-white/5 bg-black/30">
+            <td class="p-2"></td>
+            <td class="p-2">
+              <input type="text" id="colSearchDate" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2">
+              <input type="text" id="colSearchVehicle" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2">
+              <input type="text" id="colSearchChassis" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2">
+              <input type="text" id="colSearchColour" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2">
+              <input type="text" id="colSearchVenue" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2"></td>
+            <td class="p-2"></td>
+            <td class="p-2"></td>
+            <td class="p-2">
+              <input type="text" id="colSearchStatus" oninput="renderAll()" placeholder="Search..." class="w-full glass-input rounded-xl px-2.5 py-1.5 text-[11px] font-normal text-white focus:outline-none">
+            </td>
+            <td class="p-2"></td>
           </tr>
         </thead>
-        <tbody id="unitsTableBody" class="divide-y divide-slate-700">
+        <tbody id="unitsTableBody" class="divide-y divide-white/5">
           <!-- Dynamic Content -->
         </tbody>
       </table>
@@ -187,131 +457,1067 @@
   </div>
 
   <script>
-    let units = JSON.parse(localStorage.getItem('jdm_auction_units') || '[]');
+    // --- Interactive Skyline & Evo 8 Background Canvas Engine ---
+    const bgCanvas = document.getElementById('jdmBgCanvas');
+    const bgCtx = bgCanvas.getContext('2d');
+
+    let canvasWidth, canvasHeight;
+    function resizeBgCanvas() {
+      canvasWidth = window.innerWidth;
+      canvasHeight = window.innerHeight;
+      bgCanvas.width = canvasWidth * window.devicePixelRatio;
+      bgCanvas.height = canvasHeight * window.devicePixelRatio;
+      bgCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeBgCanvas);
+    resizeBgCanvas();
+
+    // Speed lines & particles
+    const speedLines = Array.from({ length: 40 }, () => ({
+      x: Math.random() * canvasWidth,
+      y: Math.random() * canvasHeight,
+      length: Math.random() * 120 + 40,
+      speed: Math.random() * 5 + 2,
+      opacity: Math.random() * 0.2 + 0.05
+    }));
+
+    // Click interactive sparks / shockwave rings
+    const clickEffects = [];
+
+    window.addEventListener('click', (e) => {
+      for (let i = 0; i < 28; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 7 + 2;
+        clickEffects.push({
+          x: e.clientX,
+          y: e.clientY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: Math.random() * 3 + 1,
+          color: Math.random() > 0.4 ? '#ef4444' : '#fbbf24',
+          alpha: 1,
+          decay: Math.random() * 0.03 + 0.015,
+          type: 'spark'
+        });
+      }
+      clickEffects.push({
+        x: e.clientX,
+        y: e.clientY,
+        radius: 10,
+        maxRadius: Math.random() * 80 + 70,
+        alpha: 0.8,
+        decay: 0.03,
+        type: 'ring'
+      });
+    });
+
+    let animTime = 0;
+
+    // Skyline GT-R Taillight Cluster (Right Side)
+    function drawSkylineTaillightCluster(ctx, x, y, scale, pulse) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+
+      ctx.beginPath();
+      ctx.roundRect(-155, -85, 310, 170, 28);
+      ctx.fillStyle = 'rgba(10, 8, 12, 0.45)';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.25)';
+      ctx.stroke();
+
+      const centers = [-75, 75];
+      centers.forEach((cx, idx) => {
+        const glowRadius = 65;
+        const gradient = ctx.createRadialGradient(cx, 0, 10, cx, 0, glowRadius);
+        gradient.addColorStop(0, `rgba(239, 68, 68, ${0.45 * pulse})`);
+        gradient.addColorStop(0.5, `rgba(220, 38, 38, ${0.18 * pulse})`);
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        
+        ctx.beginPath();
+        ctx.arc(cx, 0, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx, 0, 52, 0, Math.PI * 2);
+        ctx.fillStyle = '#12080a';
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, 0, 42, 0, Math.PI * 2);
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = `rgba(255, 40, 40, ${0.85 + 0.15 * pulse})`;
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 28 * pulse;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.arc(cx, 0, 31, 0, Math.PI * 2);
+        ctx.fillStyle = '#060405';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, 0, 18, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 120, 120, ${0.6 * pulse})`;
+        ctx.shadowColor = '#ff6b6b';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.arc(cx, 0, 42, -Math.PI * 0.75, -Math.PI * 0.25);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    // Mitsubishi Lancer Evolution VIII (Evo 8) Rear Wing & Angular Taillights (Left Side)
+    function drawEvo8RearSilhouette(ctx, x, y, scale, pulse) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+
+      // Evo 8 High-Rise Carbon Rear Wing Silhouette
+      ctx.beginPath();
+      ctx.moveTo(-110, -85);
+      ctx.lineTo(110, -85);
+      ctx.lineTo(95, -68);
+      ctx.lineTo(-95, -68);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(12, 10, 15, 0.55)';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.stroke();
+
+      // Wing support pillars
+      ctx.fillStyle = 'rgba(15, 12, 16, 0.75)';
+      ctx.fillRect(-60, -68, 10, 32);
+      ctx.fillRect(50, -68, 10, 32);
+
+      // Evo 8 Angular / Sharp Taillight Clusters (Left & Right)
+      [-75, 75].forEach((cx) => {
+        const gradient = ctx.createRadialGradient(cx, 10, 5, cx, 10, 55);
+        gradient.addColorStop(0, `rgba(245, 158, 11, ${0.4 * pulse})`);
+        gradient.addColorStop(0.6, `rgba(239, 68, 68, ${0.15 * pulse})`);
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.beginPath();
+        ctx.arc(cx, 10, 55, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Sharp Rectangular Housing
+        ctx.beginPath();
+        ctx.roundRect(cx - 42, -12, 84, 46, 8);
+        ctx.fillStyle = '#0e080a';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+        ctx.stroke();
+
+        // Upper Red Brake LED Strip
+        ctx.beginPath();
+        ctx.roundRect(cx - 36, -6, 72, 16, 4);
+        ctx.fillStyle = `rgba(255, 50, 50, ${0.85 + 0.15 * pulse})`;
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 22 * pulse;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Lower Amber Indicator / Reverse Strip
+        ctx.beginPath();
+        ctx.roundRect(cx - 36, 14, 72, 12, 4);
+        ctx.fillStyle = `rgba(251, 191, 36, ${0.75 + 0.2 * pulse})`;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 16 * pulse;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      ctx.restore();
+    }
+
+    function animateBg() {
+      bgCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // 1. Draw highway speed lines
+      speedLines.forEach(l => {
+        bgCtx.beginPath();
+        bgCtx.moveTo(l.x, l.y);
+        bgCtx.lineTo(l.x - l.length, l.y);
+        bgCtx.strokeStyle = `rgba(239, 68, 68, ${l.opacity})`;
+        bgCtx.lineWidth = 1.5;
+        bgCtx.stroke();
+
+        l.x -= l.speed;
+        if (l.x + l.length < 0) {
+          l.x = canvasWidth + l.length;
+          l.y = Math.random() * canvasHeight;
+        }
+      });
+
+      // 2. Draw Background Vehicles (Skyline GT-R right side & Evo 8 left side)
+      animTime += 0.03;
+      const pulse = Math.sin(animTime) * 0.25 + 0.85;
+      const scaleFactor = Math.min(canvasWidth / 1400, 1.2) + 0.15;
+
+      // Skyline on the right
+      drawSkylineTaillightCluster(bgCtx, canvasWidth * 0.82, canvasHeight * 0.35, scaleFactor, pulse);
+
+      // Evo 8 on the left
+      drawEvo8RearSilhouette(bgCtx, canvasWidth * 0.18, canvasHeight * 0.68, scaleFactor, pulse);
+
+      // 3. Render Click Sparks & Shockwave Rings
+      for (let i = clickEffects.length - 1; i >= 0; i--) {
+        const fx = clickEffects[i];
+        if (fx.type === 'spark') {
+          bgCtx.beginPath();
+          bgCtx.arc(fx.x, fx.y, fx.radius, 0, Math.PI * 2);
+          bgCtx.fillStyle = fx.color;
+          bgCtx.globalAlpha = fx.alpha;
+          bgCtx.shadowColor = fx.color;
+          bgCtx.shadowBlur = 10;
+          bgCtx.fill();
+          bgCtx.globalAlpha = 1;
+          bgCtx.shadowBlur = 0;
+
+          fx.x += fx.vx;
+          fx.y += fx.vy;
+          fx.alpha -= fx.decay;
+        } else if (fx.type === 'ring') {
+          bgCtx.beginPath();
+          bgCtx.arc(fx.x, fx.y, fx.radius, 0, Math.PI * 2);
+          bgCtx.strokeStyle = 'rgba(245, 158, 11, ' + fx.alpha + ')';
+          bgCtx.lineWidth = 2;
+          bgCtx.shadowColor = '#fbbf24';
+          bgCtx.shadowBlur = 12;
+          bgCtx.stroke();
+          bgCtx.shadowBlur = 0;
+
+          fx.radius += 3.5;
+          fx.alpha -= fx.decay;
+        }
+
+        if (fx.alpha <= 0 || (fx.radius && fx.radius > fx.maxRadius)) {
+          clickEffects.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animateBg);
+    }
+    requestAnimationFrame(animateBg);
+
+
+    // --- Auction Intelligence Core Logic ---
+    let profilesData = JSON.parse(localStorage.getItem('skyline_auction_profiles_v2') || 'null');
+    
+    if (!profilesData) {
+      let legacyProfiles = JSON.parse(localStorage.getItem('jdm_auction_profiles') || 'null');
+      if (!legacyProfiles) {
+        const legacyUnits = JSON.parse(localStorage.getItem('jdm_auction_units') || '[]');
+        legacyProfiles = { "JDM Apex Node": legacyUnits };
+      }
+      
+      profilesData = {};
+      Object.keys(legacyProfiles).forEach(name => {
+        profilesData[name] = {
+          units: legacyProfiles[name],
+          target: 5
+        };
+      });
+    }
+
+    let activeProfile = localStorage.getItem('skyline_active_profile') || Object.keys(profilesData)[0] || "JDM Apex Node";
+    if (!profilesData[activeProfile]) {
+      activeProfile = Object.keys(profilesData)[0] || "JDM Apex Node";
+    }
+
+    function getActiveProfileData() {
+      if (!profilesData[activeProfile]) {
+        profilesData[activeProfile] = { units: [], target: 5 };
+      }
+      return profilesData[activeProfile];
+    }
+
+    let selectedUnitIds = new Set();
     let winLossChartInstance = null;
     let priceTrendChartInstance = null;
 
-    // Set default date input to today
+    // Populate Year Dropdown (1980 - 2026)
+    const yearSelect = document.getElementById('year');
+    for (let y = 2026; y >= 1980; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
+    }
+    if (yearSelect.options.length > 1) {
+      yearSelect.selectedIndex = 1;
+    }
+    
     document.getElementById('auctionDate').valueAsDate = new Date();
+    document.getElementById('bulkDateInput').valueAsDate = new Date();
+    document.getElementById('briefingDate').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+    
+    populateProfileDropdown();
+
+    function populateProfileDropdown() {
+      const select = document.getElementById('profileSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      Object.keys(profilesData).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === activeProfile) opt.selected = true;
+        select.appendChild(opt);
+      });
+      document.getElementById('targetProfileName').innerText = activeProfile;
+      const prof = getActiveProfileData();
+      document.getElementById('userTargetInput').value = prof.target || 5;
+    }
+
+    function switchProfile(name) {
+      if (profilesData[name]) {
+        activeProfile = name;
+        selectedUnitIds.clear();
+        saveAndRender();
+      }
+    }
+
+    function createNewProfile() {
+      const name = prompt('Enter new node profile name:');
+      if (!name) return;
+      const cleanName = name.trim();
+      if (!cleanName) return;
+      if (profilesData[cleanName]) {
+        alert('Node profile already exists.');
+        return;
+      }
+      profilesData[cleanName] = { units: [], target: 5 };
+      activeProfile = cleanName;
+      selectedUnitIds.clear();
+      saveAndRender();
+    }
+
+    function deleteCurrentProfile() {
+      const profileKeys = Object.keys(profilesData);
+      if (profileKeys.length <= 1) {
+        alert('Cannot delete the last remaining node profile.');
+        return;
+      }
+      if (confirm(`Are you sure you want to delete the node profile "${activeProfile}" and all its telemetry records?`)) {
+        delete profilesData[activeProfile];
+        const remainingKeys = Object.keys(profilesData);
+        activeProfile = remainingKeys[0];
+        selectedUnitIds.clear();
+        saveAndRender();
+      }
+    }
+
+    function updateTarget(newTarget) {
+      const val = parseInt(newTarget, 10);
+      if (isNaN(val) || val < 1) return;
+      getActiveProfileData().target = val;
+      saveAndRender();
+    }
+
+    function isDateVal(val) {
+      if (!val) return false;
+      if (typeof val === 'number' && val > 30000 && val < 60000) return true;
+      const s = String(val).trim();
+      return /^\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}/.test(s);
+    }
+
+    function parseExcelDate(rawDate) {
+      if (rawDate === null || rawDate === undefined || rawDate === '') return null;
+
+      if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+        return rawDate.toLocaleDateString('en-CA');
+      }
+
+      if (typeof rawDate === 'number') {
+        if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+          const obj = XLSX.SSF.parse_date_code(rawDate);
+          if (obj && obj.y && obj.m && obj.d) {
+            return `${obj.y}-${String(obj.m).padStart(2, '0')}-${String(obj.d).padStart(2, '0')}`;
+          }
+        }
+        const utcMs = (rawDate - (25567 + 2)) * 86400 * 1000;
+        const dt = new Date(utcMs);
+        if (!isNaN(dt.getTime())) {
+          return dt.toLocaleDateString('en-CA');
+        }
+      }
+
+      const s = String(rawDate).trim();
+      if (!s) return null;
+
+      const datePartMatch = s.match(/^(\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2})/);
+      if (datePartMatch) {
+        const cleanDateStr = datePartMatch[1].replace(/[\/.]/g, '-');
+        const parts = cleanDateStr.split('-');
+        if (parts.length === 3) {
+          return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+
+      let matchISO = s.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/);
+      if (matchISO) {
+        return `${matchISO[1]}-${matchISO[2].padStart(2, '0')}-${matchISO[3].padStart(2, '0')}`;
+      }
+
+      let matchUS = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (matchUS) {
+        let p1 = parseInt(matchUS[1], 10);
+        let p2 = parseInt(matchUS[2], 10);
+        let y = parseInt(matchUS[3], 10);
+        if (y < 100) y += 2000;
+        
+        let m = p1;
+        let d = p2;
+        if (m > 12 && d <= 12) {
+          m = p2;
+          d = p1;
+        }
+
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+
+      return null;
+    }
+
+    function calculateStatus(soldPrice, proxyBid) {
+      if (soldPrice > 0 && proxyBid > 0) {
+        if (soldPrice <= proxyBid) {
+          return 'WON';
+        } else {
+          return 'SOLD';
+        }
+      }
+      return 'PASSED';
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (typeof XLSX === 'undefined') {
+        alert('SheetJS (XLSX) library is not loaded. Please verify internet connection.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          let workbook;
+          const data = new Uint8Array(evt.target.result);
+          
+          try {
+            workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          } catch (errArr) {
+            const textDecoder = new TextDecoder('utf-8');
+            const text = textDecoder.decode(data);
+            workbook = XLSX.read(text, { type: 'string' });
+          }
+
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+            alert('Could not parse sheets from uploaded file.');
+            return;
+          }
+
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+          if (!rows || rows.length === 0) {
+            alert('Uploaded sheet contains no readable rows.');
+            return;
+          }
+
+          let importedCount = 0;
+          let currentMake = '';
+          let currentDate = new Date().toISOString().split('T')[0];
+          const profUnits = getActiveProfileData().units;
+
+          rows.forEach((row) => {
+            if (!Array.isArray(row) || row.length === 0) return;
+
+            const rowStr = row.map(cell => String(cell || '')).join(' ').toLowerCase();
+            if (rowStr.includes('make') && rowStr.includes('model')) return;
+
+            let idxKm = -1;
+            for (let c = 0; c < row.length; c++) {
+              if (String(row[c] || '').toLowerCase().includes('km')) {
+                idxKm = c;
+                break;
+              }
+            }
+
+            let idxDate = 0, idxMake = 1, idxModel = 2, idxChassis = 3, idxTrim = 4;
+            let idxScoreYear = 6, idxVenue = 7, idxBid = 8;
+
+            if (idxKm === 5) {
+              idxDate = 0; idxMake = 1; idxModel = 2; idxChassis = 3; idxTrim = 4;
+              idxScoreYear = 6; idxVenue = 7; idxBid = 8;
+            } else if (idxKm === 4) {
+              if (isDateVal(row[0])) {
+                idxDate = 0; idxMake = 1; idxModel = 2; idxChassis = 3; idxTrim = -1;
+                idxScoreYear = 5; idxVenue = 6; idxBid = 7;
+              } else {
+                idxDate = -1; idxMake = 0; idxModel = 1; idxChassis = 2; idxTrim = 3;
+                idxScoreYear = 5; idxVenue = 6; idxBid = 7;
+              }
+            } else if (idxKm === 3) {
+              idxDate = -1; idxMake = 0; idxModel = 1; idxChassis = 2; idxTrim = -1;
+              idxScoreYear = 4; idxVenue = 5; idxBid = 6;
+            }
+
+            if (idxDate >= 0 && row[idxDate] !== undefined && row[idxDate] !== '') {
+              const parsedDate = parseExcelDate(row[idxDate]);
+              if (parsedDate) currentDate = parsedDate;
+            }
+
+            const rawMake = idxMake >= 0 ? String(row[idxMake] || '').trim() : '';
+            if (rawMake) currentMake = rawMake;
+            const make = currentMake || 'Other';
+
+            const rawModel = idxModel >= 0 ? String(row[idxModel] || '').trim() : '';
+            const rawChassis = idxChassis >= 0 ? String(row[idxChassis] || '').trim() : '';
+            
+            if (!rawMake && !rawModel && !rawChassis) return;
+
+            const trim = idxTrim >= 0 ? String(row[idxTrim] || '').trim() : '';
+            const model = trim ? `${rawModel} ${trim}`.trim() : (rawModel || 'Unknown');
+            const chassis = rawChassis.toUpperCase() || 'N/A';
+
+            const kmStr = String(row[idxKm] || '');
+            const mileage = Number(kmStr.replace(/\D/g, '')) || 0;
+
+            const scoreYearStr = String(row[idxScoreYear] || '').trim();
+            let score = '4';
+            let year = String(new Date().getFullYear());
+
+            const matchScoreYear = scoreYearStr.match(/(.*?)\s*\[(\d{4})\]/);
+            if (matchScoreYear) {
+              score = matchScoreYear[1] ? matchScoreYear[1].trim() : '4';
+              year = matchScoreYear[2];
+            } else if (scoreYearStr) {
+              score = scoreYearStr;
+            }
+
+            const auctionHouse = String(row[idxVenue] || '').trim() || 'Other';
+            const valBid1 = Number(String(row[idxBid] || '').replace(/\D/g, '')) || 0;
+
+            let valBid2 = 0;
+            let noteRaw = '';
+            for (let c = idxBid + 1; c < row.length; c++) {
+              const cellVal = String(row[c] || '').trim();
+              if (cellVal) {
+                const cleanNum = Number(cellVal.replace(/\D/g, ''));
+                if (c === idxBid + 1 && !isNaN(cleanNum) && cleanNum > 10000) {
+                  valBid2 = cleanNum;
+                } else {
+                  noteRaw += (noteRaw ? ' ' : '') + cellVal;
+                }
+              }
+            }
+
+            let soldPrice = valBid1;
+            let proxyBid = valBid2;
+            if (valBid2 > valBid1 && valBid1 > 0) {
+              soldPrice = valBid1;
+              proxyBid = valBid2;
+            } else if (valBid1 > 0 && valBid2 === 0) {
+              soldPrice = valBid1;
+              proxyBid = valBid1;
+            }
+
+            let colour = 'OTHER';
+            let colorMatch = noteRaw.match(/\[(.*?)\]/);
+            if (colorMatch && colorMatch[1]) {
+              colour = colorMatch[1].trim().toUpperCase();
+            }
+
+            const status = calculateStatus(soldPrice, proxyBid);
+            const cleanNote = noteRaw.replace(/\[.*?\]\s*$/, '').trim();
+
+            profUnits.push({
+              id: Date.now() + Math.random(),
+              make,
+              model,
+              chassis,
+              year,
+              colour,
+              mileage,
+              auctionHouse,
+              score,
+              soldPrice,
+              proxyBid,
+              status,
+              note: cleanNote,
+              date: currentDate
+            });
+            importedCount++;
+          });
+
+          saveAndRender();
+          alert(`Successfully ingested ${importedCount} telemetry records into node "${activeProfile}"!`);
+          e.target.value = '';
+        } catch (err) {
+          console.error('Parsing error:', err);
+          alert(`Error processing sheet:\n${err.message || err}`);
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function populateFilterDropdowns() {
+      const units = getActiveProfileData().units;
+      const makes = ['ALL', ...new Set(units.map(u => u.make))];
+      const chassisList = ['ALL', ...new Set(units.map(u => u.chassis))];
+      const years = ['ALL', ...new Set(units.map(u => u.year))].sort((a, b) => b - a);
+      const colours = ['ALL', ...new Set(units.map(u => u.colour))];
+
+      updateSelectOptions('filterMake', makes);
+      updateSelectOptions('filterChassis', chassisList);
+      updateSelectOptions('filterYear', years);
+      updateSelectOptions('filterColour', colours);
+    }
+
+    function updateSelectOptions(id, values) {
+      const el = document.getElementById(id);
+      const currentVal = el.value;
+      el.innerHTML = '';
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v === 'ALL' ? `All ${id.replace('filter', '')}s` : v;
+        el.appendChild(opt);
+      });
+      if (values.includes(currentVal)) el.value = currentVal;
+    }
+
+    function getFilteredUnits() {
+      const units = getActiveProfileData().units;
+      const fMake = document.getElementById('filterMake').value;
+      const fChassis = document.getElementById('filterChassis').value;
+      const fYear = document.getElementById('filterYear').value;
+      const fColour = document.getElementById('filterColour').value;
+      const fDateFrom = document.getElementById('filterDateFrom').value;
+      const fDateTo = document.getElementById('filterDateTo').value;
+
+      const sDate = (document.getElementById('colSearchDate')?.value || '').toLowerCase();
+      const sVehicle = (document.getElementById('colSearchVehicle')?.value || '').toLowerCase();
+      const sChassis = (document.getElementById('colSearchChassis')?.value || '').toLowerCase();
+      const sColour = (document.getElementById('colSearchColour')?.value || '').toLowerCase();
+      const sVenue = (document.getElementById('colSearchVenue')?.value || '').toLowerCase();
+      const sStatus = (document.getElementById('colSearchStatus')?.value || '').toLowerCase();
+
+      return units.filter(u => {
+        const matchMake = (fMake === 'ALL' || u.make === fMake);
+        const matchChassis = (fChassis === 'ALL' || u.chassis === fChassis);
+        const matchYear = (fYear === 'ALL' || String(u.year) === String(fYear));
+        const matchColour = (fColour === 'ALL' || u.colour === fColour);
+
+        let matchDateRange = true;
+        if (fDateFrom && u.date < fDateFrom) matchDateRange = false;
+        if (fDateTo && u.date > fDateTo) matchDateRange = false;
+
+        const vehicleStr = `${u.make} ${u.model} ${u.year}`.toLowerCase();
+        const colourStr = `${u.colour} ${u.mileage}km`.toLowerCase();
+        const venueStr = `${u.auctionHouse} ${u.score}`.toLowerCase();
+
+        const matchColDate = !sDate || (u.date || '').toLowerCase().includes(sDate);
+        const matchColVehicle = !sVehicle || vehicleStr.includes(sVehicle);
+        const matchColChassis = !sChassis || (u.chassis || '').toLowerCase().includes(sChassis);
+        const matchColColour = !sColour || colourStr.includes(sColour);
+        const matchColVenue = !sVenue || venueStr.includes(sVenue);
+        const matchColStatus = !sStatus || (u.status || '').toLowerCase().includes(sStatus);
+
+        return matchMake && matchChassis && matchYear && matchColour && matchDateRange && matchColDate && matchColVehicle && matchColChassis && matchColColour && matchColVenue && matchColStatus;
+      });
+    }
 
     function saveAndRender() {
-      localStorage.setItem('jdm_auction_units', JSON.stringify(units));
-      renderKPIs();
-      renderTable();
-      renderCharts();
+      localStorage.setItem('skyline_auction_profiles_v2', JSON.stringify(profilesData));
+      localStorage.setItem('skyline_active_profile', activeProfile);
+      populateProfileDropdown();
+      populateFilterDropdowns();
+      renderAll();
+    }
+
+    function renderAll() {
+      const filtered = getFilteredUnits();
+      renderKPIs(filtered);
+      renderTargetProgress();
+      renderDailyBriefing();
+      renderTable(filtered);
+      renderCharts(filtered);
+      updateBulkActionBar();
+    }
+
+    function resetFilters() {
+      document.getElementById('filterMake').value = 'ALL';
+      document.getElementById('filterChassis').value = 'ALL';
+      document.getElementById('filterYear').value = 'ALL';
+      document.getElementById('filterColour').value = 'ALL';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      
+      const colInputs = ['colSearchDate', 'colSearchVehicle', 'colSearchChassis', 'colSearchColour', 'colSearchVenue', 'colSearchStatus'];
+      colInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+
+      renderAll();
     }
 
     function handleFormSubmit(e) {
       e.preventDefault();
+      const soldPrice = Number(document.getElementById('soldPrice').value);
+      const proxyBid = Number(document.getElementById('proxyBid').value) || 0;
+      let status = document.getElementById('status').value;
+
+      if (status === 'AUTO') {
+        status = calculateStatus(soldPrice, proxyBid);
+      }
+
       const newUnit = {
         id: Date.now(),
-        make: document.getElementById('make').value,
+        make: document.getElementById('make').value.toUpperCase(),
         model: document.getElementById('model').value,
         chassis: document.getElementById('chassis').value.toUpperCase(),
         year: document.getElementById('year').value,
-        colour: document.getElementById('colour').value,
+        colour: document.getElementById('colour').value.toUpperCase(),
         mileage: Number(document.getElementById('mileage').value),
         auctionHouse: document.getElementById('auctionHouse').value,
         score: document.getElementById('score').value,
-        yourBid: Number(document.getElementById('yourBid').value),
-        winningPrice: Number(document.getElementById('winningPrice').value),
-        status: document.getElementById('status').value,
+        soldPrice: soldPrice,
+        proxyBid: proxyBid,
+        status: status,
+        note: '',
         date: document.getElementById('auctionDate').value
       };
 
-      units.push(newUnit);
+      getActiveProfileData().units.push(newUnit);
       saveAndRender();
       e.target.reset();
       document.getElementById('auctionDate').valueAsDate = new Date();
+      if (yearSelect.options.length > 1) yearSelect.selectedIndex = 1;
+    }
+
+    function updateDateValue(id, newDate) {
+      const unit = getActiveProfileData().units.find(u => u.id === id);
+      if (unit && newDate) {
+        unit.date = newDate;
+        localStorage.setItem('skyline_auction_profiles_v2', JSON.stringify(profilesData));
+        renderKPIs(getFilteredUnits());
+        renderCharts(getFilteredUnits());
+      }
+    }
+
+    function updateStatus(id, newStatus) {
+      const unit = getActiveProfileData().units.find(u => u.id === id);
+      if (unit) {
+        unit.status = newStatus;
+        saveAndRender();
+      }
     }
 
     function deleteUnit(id) {
-      units = units.filter(u => u.id !== id);
+      const prof = getActiveProfileData();
+      prof.units = prof.units.filter(u => u.id !== id);
+      selectedUnitIds.delete(id);
       saveAndRender();
     }
 
-    function renderKPIs() {
-      const total = units.length;
-      const wonUnits = units.filter(u => u.status === 'WON');
+    function toggleSelectAll(master) {
+      const filtered = getFilteredUnits();
+      if (master.checked) {
+        filtered.forEach(u => selectedUnitIds.add(u.id));
+      } else {
+        filtered.forEach(u => selectedUnitIds.delete(u.id));
+      }
+      renderTable(filtered);
+      updateBulkActionBar();
+    }
+
+    function toggleUnitCheckbox(id, checkbox) {
+      if (checkbox.checked) {
+        selectedUnitIds.add(Number(id));
+      } else {
+        selectedUnitIds.delete(Number(id));
+      }
+      updateBulkActionBar();
+    }
+
+    function clearSelection() {
+      selectedUnitIds.clear();
+      renderAll();
+    }
+
+    function updateBulkActionBar() {
+      const bar = document.getElementById('bulkActionBar');
+      const countText = document.getElementById('selectedCountText');
+      const selectAllCb = document.getElementById('selectAllCheckbox');
+      
+      const count = selectedUnitIds.size;
+      if (count > 0) {
+        bar.classList.remove('hidden');
+        countText.innerText = `${count} unit${count > 1 ? 's' : ''} selected`;
+      } else {
+        bar.classList.add('hidden');
+      }
+
+      const filtered = getFilteredUnits();
+      if (filtered.length > 0 && selectAllCb) {
+        const allFilteredSelected = filtered.every(u => selectedUnitIds.has(u.id));
+        selectAllCb.checked = allFilteredSelected;
+      }
+    }
+
+    function applyBulkDate() {
+      const newDate = document.getElementById('bulkDateInput').value;
+      if (!newDate) {
+        alert('Select a target date to apply.');
+        return;
+      }
+      if (selectedUnitIds.size === 0) {
+        alert('No units selected in matrix.');
+        return;
+      }
+
+      getActiveProfileData().units.forEach(u => {
+        if (selectedUnitIds.has(u.id)) {
+          u.date = newDate;
+        }
+      });
+
+      selectedUnitIds.clear();
+      saveAndRender();
+      alert('Dates updated successfully for selected units!');
+    }
+
+    function renderKPIs(displayUnits) {
+      const unitsAll = getActiveProfileData().units;
+      const total = displayUnits.length;
+      const wonUnits = displayUnits.filter(u => u.status === 'WON');
       const wonCount = wonUnits.length;
       const winRate = total > 0 ? ((wonCount / total) * 100).toFixed(1) : '0.0';
 
-      let totalMargin = 0;
+      let totalWonAmount = 0;
       wonUnits.forEach(u => {
-        totalMargin += (u.yourBid - u.winningPrice);
+        if (u.soldPrice) {
+          totalWonAmount += Number(u.soldPrice);
+        }
       });
-      const avgMargin = wonCount > 0 ? Math.round(totalMargin / wonCount) : 0;
 
       document.getElementById('kpiTotal').innerText = total;
       document.getElementById('kpiWon').innerText = wonCount;
       document.getElementById('kpiWinRate').innerText = winRate + '%';
-      document.getElementById('kpiAvgMargin').innerText = '¥' + avgMargin.toLocaleString();
+      document.getElementById('kpiTotalWonAmount').innerText = '¥' + totalWonAmount.toLocaleString();
+      document.getElementById('tableCountBadge').innerText = `Node: ${activeProfile} (${unitsAll.length} total records)`;
     }
 
-    function renderTable() {
-      const tbody = document.getElementById('unitsTableBody');
-      tbody.innerHTML = '';
+    function renderTargetProgress() {
+      const prof = getActiveProfileData();
+      const units = prof.units;
+      const target = prof.target || 5;
+      const wonCount = units.filter(u => u.status === 'WON').length;
+      const pct = Math.min(100, Math.round((wonCount / target) * 100));
 
-      if (units.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-500">No auction records added yet.</td></tr>`;
+      document.getElementById('targetProgressText').innerText = `${wonCount} / ${target} Won Units`;
+      document.getElementById('targetPercentage').innerText = `${pct}%`;
+      document.getElementById('targetProgressBar').style.width = `${pct}%`;
+    }
+
+    function renderDailyBriefing() {
+      const prof = getActiveProfileData();
+      const units = prof.units;
+      const container = document.getElementById('aiBriefingContent');
+
+      if (!units || units.length === 0) {
+        container.innerHTML = `<span class="font-mono text-zinc-500">No telemetry data recorded for node "${activeProfile}". Import a sheet or load sample data to generate your personalized AI briefing.</span>`;
         return;
       }
 
-      const sorted = [...units].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const total = units.length;
+      const won = units.filter(u => u.status === 'WON');
+      const winRate = ((won.length / total) * 100).toFixed(1);
+      
+      let totalSpent = 0;
+      won.forEach(w => totalSpent += (w.soldPrice || 0));
+      const avgPrice = won.length > 0 ? Math.round(totalSpent / won.length) : 0;
+
+      const chassisCounts = {};
+      units.forEach(u => {
+        chassisCounts[u.chassis] = (chassisCounts[u.chassis] || 0) + 1;
+      });
+      let topChassis = 'N/A';
+      let maxCount = 0;
+      Object.keys(chassisCounts).forEach(c => {
+        if (chassisCounts[c] > maxCount) {
+          maxCount = chassisCounts[c];
+          topChassis = c;
+        }
+      });
+
+      const target = prof.target || 5;
+      const targetDelta = target - won.length;
+
+      let narrative = `🔥 JDM Auction Telemetry Briefing for <b>${activeProfile}</b>: Tracking <b>${total} total auction units</b> with an aggregate win rate of <b>${winRate}%</b> (<b>${won.length}</b> won successfully). Total capital deployed on successful acquisitions is <b>¥${totalSpent.toLocaleString()}</b> (Average: <b>¥${avgPrice.toLocaleString()}</b> per unit).`;
+      
+      if (targetDelta > 0) {
+        narrative += ` <span class="text-red-400 font-bold">Target Alert:</span> You need <b>${targetDelta}</b> more win(s) to achieve your personal target of <b>${target}</b> won units.`;
+      } else {
+        narrative += ` <span class="text-emerald-400 font-bold">Goal Achieved:</span> Congratulations! You have successfully met or exceeded your target of <b>${target}</b> won units for this node.`;
+      }
+
+      narrative += ` Your most active chassis telemetry is <b>${topChassis}</b> (<b>${maxCount}</b> units logged).`;
+
+      container.innerHTML = narrative;
+    }
+
+    function renderTable(displayUnits) {
+      const tbody = document.getElementById('unitsTableBody');
+      tbody.innerHTML = '';
+
+      if (displayUnits.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-zinc-500 font-mono">No matching records found in node "${activeProfile}".</td></tr>`;
+        return;
+      }
+
+      const sorted = [...displayUnits].sort((a, b) => b.date.localeCompare(a.date));
 
       sorted.forEach(unit => {
-        const badgeColor = unit.status === 'WON' 
-          ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700' 
-          : unit.status === 'LOST' 
-          ? 'bg-red-900/50 text-red-400 border-red-700' 
-          : 'bg-amber-900/50 text-amber-400 border-amber-700';
+        let badgeStyle = 'bg-zinc-800/80 text-zinc-300 border-zinc-700';
+        if (unit.status === 'WON') {
+          badgeStyle = 'bg-emerald-950/80 text-emerald-400 border-emerald-500/50 shadow-lg shadow-emerald-950/50';
+        } else if (unit.status === 'SOLD') {
+          badgeStyle = 'bg-rose-950/80 text-rose-400 border-rose-500/50';
+        } else if (unit.status === 'PASSED') {
+          badgeStyle = 'bg-amber-950/80 text-amber-400 border-amber-500/50';
+        } else if (unit.status === 'LOST') {
+          badgeStyle = 'bg-zinc-900/80 text-zinc-400 border-zinc-700';
+        }
+
+        const diff = (unit.proxyBid && unit.soldPrice) ? (unit.proxyBid - unit.soldPrice) : 0;
+        let diffFormatted = '-';
+        let diffColor = 'text-zinc-400';
+        if (unit.proxyBid && unit.soldPrice) {
+          if (diff > 0) {
+            diffFormatted = '+¥' + diff.toLocaleString();
+            diffColor = 'text-emerald-400 font-bold';
+          } else if (diff < 0) {
+            diffFormatted = '-¥' + Math.abs(diff).toLocaleString();
+            diffColor = 'text-rose-400 font-bold';
+          } else {
+            diffFormatted = '¥0';
+            diffColor = 'text-zinc-300';
+          }
+        }
+
+        const isChecked = selectedUnitIds.has(unit.id) ? 'checked' : '';
 
         const row = document.createElement('tr');
-        row.className = "hover:bg-slate-750 transition";
+        row.className = "hover:bg-white/[0.04] transition-colors duration-200";
         row.innerHTML = `
-          <td class="p-3 font-mono">${unit.date}</td>
-          <td class="p-3 font-semibold text-white">${unit.make} ${unit.model} (${unit.year})</td>
-          <td class="p-3 font-mono text-blue-300">${unit.chassis}</td>
-          <td class="p-3">${unit.colour} / ${unit.mileage.toLocaleString()} km</td>
-          <td class="p-3">${unit.auctionHouse} <span class="text-slate-400">(${unit.score})</span></td>
-          <td class="p-3 font-mono">¥${unit.yourBid.toLocaleString()}</td>
-          <td class="p-3 font-mono text-emerald-300">¥${unit.winningPrice.toLocaleString()}</td>
-          <td class="p-3"><span class="px-2 py-1 text-[10px] font-bold rounded border ${badgeColor}">${unit.status}</span></td>
-          <td class="p-3 text-right"><button onclick="deleteUnit(${unit.id})" class="text-red-400 hover:text-red-300 font-bold">Remove</button></td>
+          <td class="p-3.5 text-center">
+            <input type="checkbox" ${isChecked} onchange="toggleUnitCheckbox(${unit.id}, this)" class="cursor-pointer accent-red-500 unit-checkbox">
+          </td>
+          <td class="p-3.5">
+            <input type="date" value="${unit.date || ''}" 
+                   onchange="updateDateValue(${unit.id}, this.value)" 
+                   onblur="saveAndRender()" 
+                   class="glass-input rounded-xl px-2.5 py-1.5 text-xs font-mono text-zinc-300 focus:outline-none cursor-pointer">
+          </td>
+          <td class="p-3.5 font-bold text-white">${unit.make} ${unit.model} <span class="text-zinc-400 font-normal">(${unit.year})</span></td>
+          <td class="p-3.5 font-mono text-red-400 font-bold">${unit.chassis}</td>
+          <td class="p-3.5"><span class="text-zinc-200">${unit.colour}</span> <span class="text-zinc-500">/</span> <span class="font-mono">${unit.mileage ? unit.mileage.toLocaleString() + ' km' : 'N/A'}</span></td>
+          <td class="p-3.5">${unit.auctionHouse} <span class="text-zinc-500 font-mono">(${unit.score})</span></td>
+          <td class="p-3.5 font-mono text-emerald-400 font-bold">¥${unit.soldPrice ? unit.soldPrice.toLocaleString() : '0'}</td>
+          <td class="p-3.5 font-mono text-red-400">¥${unit.proxyBid ? unit.proxyBid.toLocaleString() : '-'}</td>
+          <td class="p-3.5 font-mono ${diffColor}">${diffFormatted}</td>
+          <td class="p-3.5">
+            <select onchange="updateStatus(${unit.id}, this.value)" class="px-3 py-1.5 text-[11px] font-black tracking-wider rounded-xl border focus:outline-none cursor-pointer transition ${badgeStyle}">
+              <option value="WON" ${unit.status === 'WON' ? 'selected' : ''}>WON</option>
+              <option value="SOLD" ${unit.status === 'SOLD' ? 'selected' : ''}>SOLD</option>
+              <option value="PASSED" ${unit.status === 'PASSED' ? 'selected' : ''}>PASSED</option>
+              <option value="LOST" ${unit.status === 'LOST' ? 'selected' : ''}>LOST</option>
+            </select>
+            ${unit.note ? `<div class="text-[10px] text-zinc-400 mt-1 max-w-xs leading-relaxed">${unit.note}</div>` : ''}
+          </td>
+          <td class="p-3.5 text-right"><button onclick="deleteUnit(${unit.id})" class="text-rose-400 hover:text-rose-300 font-bold text-[11px] uppercase tracking-wider transition">Remove</button></td>
         `;
         tbody.appendChild(row);
       });
     }
 
-    function renderCharts() {
-      // 1. Win/Loss Chart
-      const wonCount = units.filter(u => u.status === 'WON').length;
-      const lostCount = units.filter(u => u.status === 'LOST').length;
-      const passedCount = units.filter(u => u.status === 'PASSED').length;
+    function renderCharts(displayUnits) {
+      const priceEmptyMsg = document.getElementById('priceEmptyMsg');
+      const winLossEmptyMsg = document.getElementById('winLossEmptyMsg');
+
+      if (typeof Chart === 'undefined') return;
+
+      if (!displayUnits || displayUnits.length === 0) {
+        if (priceTrendChartInstance) priceTrendChartInstance.destroy();
+        if (winLossChartInstance) winLossChartInstance.destroy();
+        if (priceEmptyMsg) priceEmptyMsg.classList.remove('hidden');
+        if (winLossEmptyMsg) winLossEmptyMsg.classList.remove('hidden');
+        return;
+      }
+
+      if (priceEmptyMsg) priceEmptyMsg.classList.add('hidden');
+      if (winLossEmptyMsg) winLossEmptyMsg.classList.add('hidden');
+
+      const wonCount = displayUnits.filter(u => u.status === 'WON').length;
+      const soldCount = displayUnits.filter(u => u.status === 'SOLD').length;
+      const passedCount = displayUnits.filter(u => u.status === 'PASSED' || u.status === 'LOST').length;
 
       if (winLossChartInstance) winLossChartInstance.destroy();
       winLossChartInstance = new Chart(document.getElementById('winLossChart'), {
         type: 'doughnut',
         data: {
-          labels: ['Won', 'Lost', 'Passed'],
+          labels: ['Won', 'Sold', 'Passed / Lost'],
           datasets: [{
-            data: [wonCount, lostCount, passedCount],
-            backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
-            borderWidth: 0
+            data: [wonCount, soldCount, passedCount],
+            backgroundColor: ['#10B981', '#F43F5E', '#efc444'],
+            borderWidth: 0,
+            hoverOffset: 6
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'right', labels: { color: '#94A3B8' } } }
+          plugins: { 
+            legend: { 
+              position: 'right', 
+              labels: { color: '#A1A1AA', font: { family: 'Plus Jakarta Sans', weight: '700', size: 11 }, boxWidth: 12 } 
+            } 
+          }
         }
       });
 
-      // 2. Price Trend Chart
-      const sortedByDate = [...units].sort((a, b) => new Date(a.date) - new Date(b.date));
-      const labels = sortedByDate.map(u => `${u.chassis} (${u.date})`);
-      const winningPrices = sortedByDate.map(u => u.winningPrice);
-      const myBids = sortedByDate.map(u => u.yourBid);
+      const sortedByDate = [...displayUnits].sort((a, b) => a.date.localeCompare(b.date));
+      const labels = sortedByDate.map(u => `${u.chassis} (${u.mileage ? u.mileage.toLocaleString() + ' km' : '0 km'})`);
+      const soldPrices = sortedByDate.map(u => u.soldPrice || 0);
+      const proxyBids = sortedByDate.map(u => u.proxyBid || 0);
 
       if (priceTrendChartInstance) priceTrendChartInstance.destroy();
       priceTrendChartInstance = new Chart(document.getElementById('priceTrendChart'), {
@@ -320,20 +1526,26 @@
           labels: labels,
           datasets: [
             {
-              label: 'Winning Hammer Price (¥)',
-              data: winningPrices,
-              borderColor: '#3B82F6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              label: 'Sold Price (¥)',
+              data: soldPrices,
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
               fill: true,
-              tension: 0.3
+              tension: 0.35,
+              borderWidth: 2.5,
+              pointBackgroundColor: '#10B981',
+              pointRadius: 4.5
             },
             {
-              label: 'Your Max Bid (¥)',
-              data: myBids,
-              borderColor: '#10B981',
-              borderDash: [5, 5],
+              label: 'Proxy Bid (¥)',
+              data: proxyBids,
+              borderColor: '#EF4444',
+              borderDash: [6, 6],
               fill: false,
-              tension: 0.3
+              tension: 0.35,
+              borderWidth: 2.5,
+              pointBackgroundColor: '#EF4444',
+              pointRadius: 4.5
             }
           ]
         },
@@ -341,40 +1553,60 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { ticks: { color: '#94A3B8' }, grid: { color: '#334155' } },
+            x: { 
+              ticks: { color: '#71717A', font: { family: 'JetBrains Mono', size: 10 } }, 
+              grid: { color: 'rgba(255, 255, 255, 0.03)' } 
+            },
             y: { 
               ticks: { 
-                color: '#94A3B8',
-                callback: val => '¥' + (val / 10000) + 'k'
+                color: '#71717A',
+                font: { family: 'JetBrains Mono', size: 10 },
+                callback: function(val) {
+                  if (val >= 1000000) {
+                    return '¥' + (val / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+                  } else if (val >= 1000) {
+                    return '¥' + (val / 1000).toFixed(0) + 'k';
+                  }
+                  return '¥' + Math.round(val).toLocaleString();
+                }
               }, 
-              grid: { color: '#334155' } 
+              grid: { color: 'rgba(255, 255, 255, 0.03)' } 
             }
           },
-          plugins: { legend: { labels: { color: '#94A3B8' } } }
+          plugins: { 
+            legend: { 
+              labels: { color: '#A1A1AA', font: { family: 'Plus Jakarta Sans', weight: '700', size: 11 }, boxWidth: 12 } 
+            } 
+          }
         }
       });
     }
 
     function loadSampleData() {
-      units = [
-        { id: 1, make: 'Nissan', model: 'Skyline GT-R', chassis: 'BNR34', year: '1999', colour: 'Bayside Blue', mileage: 62000, auctionHouse: 'USS Tokyo', score: '4.5', yourBid: 12500000, winningPrice: 13200000, status: 'LOST', date: '2026-08-10' },
-        { id: 2, make: 'Toyota', model: 'Supra RZ', chassis: 'JZA80', year: '1997', colour: 'Renaissance Red', mileage: 84000, auctionHouse: 'TAA Yokohama', score: '4', yourBid: 7800000, winningPrice: 7450000, status: 'WON', date: '2026-08-18' },
-        { id: 3, make: 'Honda', model: 'Civic Type R', chassis: 'EK9', year: '1998', colour: 'Championship White', mileage: 110000, auctionHouse: 'HAA Kobe', score: '3.5', yourBid: 3200000, winningPrice: 3100000, status: 'WON', date: '2026-09-02' },
-        { id: 4, make: 'Mazda', model: 'RX-7 Spirit R', chassis: 'FD3S', year: '2002', colour: 'Titanium Grey', mileage: 45000, auctionHouse: 'JU Gifu', score: '4.5', yourBid: 9500000, winningPrice: 10800000, status: 'LOST', date: '2026-09-15' },
-        { id: 5, make: 'Toyota', model: 'Supra RZ', chassis: 'JZA80', year: '1998', colour: 'Black', mileage: 92000, auctionHouse: 'USS Tokyo', score: '4', yourBid: 8100000, winningPrice: 7900000, status: 'WON', date: '2026-09-24' }
+      const sampleUnits = [
+        { id: 1, make: 'NISSAN', model: 'SKYLINE GT-R V-Spec', chassis: 'BNR34', year: '1999', colour: 'BAYSIDE BLUE', mileage: 35000, auctionHouse: 'USS Tokyo', score: '4.5', soldPrice: 14500000, proxyBid: 16000000, status: 'WON', note: 'Clean auction sheet, rare spec.', date: '2026-09-01' },
+        { id: 2, make: 'MITSUBISHI', model: 'LANCER EVOLUTION VIII', chassis: 'CT9A', year: '2004', colour: 'RALLY RED', mileage: 41000, auctionHouse: 'USS Osaka', score: '4.5', soldPrice: 5200000, proxyBid: 5500000, status: 'WON', note: 'Evo 8 MR Edition, pristine condition.', date: '2026-09-02' },
+        { id: 3, make: 'NISSAN', model: 'SKYLINE GT-R M-Spec', chassis: 'BNR34', year: '2001', colour: 'SILICA BREATH', mileage: 52000, auctionHouse: 'CAA Chubu', score: '4', soldPrice: 18200000, proxyBid: 17500000, status: 'SOLD', note: 'Outbid by competitor proxy.', date: '2026-09-03' }
       ];
+      profilesData[activeProfile] = { units: sampleUnits, target: 5 };
+      selectedUnitIds.clear();
       saveAndRender();
     }
 
     function clearAllData() {
-      if (confirm('Clear all stored auction entries?')) {
-        units = [];
+      if (confirm(`Clear all telemetry records for node "${activeProfile}"?`)) {
+        profilesData[activeProfile].units = [];
+        selectedUnitIds.clear();
         saveAndRender();
       }
     }
 
-    // Initial Render
-    saveAndRender();
+    const currentProf = getActiveProfileData();
+    if ((!currentProf.units || currentProf.units.length === 0) && Object.keys(profilesData).length === 1) {
+      loadSampleData();
+    } else {
+      saveAndRender();
+    }
   </script>
 </body>
 </html>
