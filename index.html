@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japanese Auction Unit Bidding & Trend Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-blue-400">JDM Auction Intelligence</h1>
+        <p class="text-sm text-slate-400">Track bids, analyze winning rates, and study hammer price trends</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="loadSampleData()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold tracking-wide transition">Load Sample Data</button>
+        <button onclick="clearAllData()" class="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded-lg text-xs font-semibold tracking-wide border border-red-700 transition">Clear All</button>
+      </div>
+    </header>
+
+    <!-- KPI Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
+        <span class="text-xs uppercase font-bold text-slate-400">Total Bids</span>
+        <div id="kpiTotal" class="text-3xl font-extrabold mt-1 text-white">0</div>
+      </div>
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
+        <span class="text-xs uppercase font-bold text-slate-400">Units Won</span>
+        <div id="kpiWon" class="text-3xl font-extrabold mt-1 text-emerald-400">0</div>
+      </div>
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
+        <span class="text-xs uppercase font-bold text-slate-400">Win Rate</span>
+        <div id="kpiWinRate" class="text-3xl font-extrabold mt-1 text-blue-400">0.0%</div>
+      </div>
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
+        <span class="text-xs uppercase font-bold text-slate-400">Avg Won Margin</span>
+        <div id="kpiAvgMargin" class="text-3xl font-extrabold mt-1 text-amber-400">¥0</div>
+      </div>
+    </div>
+
+    <!-- Main Content: Form & Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Entry Form -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
+        <h2 class="text-lg font-bold text-white mb-4 border-b border-slate-700 pb-2">Log Auction Unit</h2>
+        <form id="unitForm" onsubmit="handleFormSubmit(event)" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Make</label>
+              <input type="text" id="make" required placeholder="Toyota" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Model</label>
+              <input type="text" id="model" required placeholder="Supra" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Chassis Code</label>
+              <input type="text" id="chassis" required placeholder="JZA80" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Year</label>
+              <input type="number" id="year" required placeholder="1998" min="1950" max="2027" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Colour</label>
+              <input type="text" id="colour" required placeholder="Pearl White" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Mileage (km)</label>
+              <input type="number" id="mileage" required placeholder="85000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Auction House</label>
+              <select id="auctionHouse" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                <option value="USS Tokyo">USS Tokyo</option>
+                <option value="TAA Yokohama">TAA Yokohama</option>
+                <option value="HAA Kobe">HAA Kobe</option>
+                <option value="JU Gifu">JU Gifu</option>
+                <option value="CAA Chubu">CAA Chubu</option>
+                <option value="Arai Auto">Arai Auto</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Score / Grade</label>
+              <select id="score" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                <option value="S">Grade S</option>
+                <option value="6">Grade 6</option>
+                <option value="5">Grade 5</option>
+                <option value="4.5">Grade 4.5</option>
+                <option value="4">Grade 4</option>
+                <option value="3.5">Grade 3.5</option>
+                <option value="3">Grade 3</option>
+                <option value="R/RA">Grade R/RA</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Your Bid (¥)</label>
+              <input type="number" id="yourBid" required placeholder="3500000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Winning Price (¥)</label>
+              <input type="number" id="winningPrice" required placeholder="3400000" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Bid Outcome</label>
+              <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                <option value="WON">WON</option>
+                <option value="LOST">LOST</option>
+                <option value="PASSED">PASSED</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400">Auction Date</label>
+              <input type="date" id="auctionDate" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2 px-4 rounded text-sm text-white transition mt-2">Add Auction Record</button>
+        </form>
+      </div>
+
+      <!-- Visualization Section -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Chart 1: Price Trend -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
+          <h2 class="text-lg font-bold text-white mb-4">Price Trend (Winning Hammer Price vs. Your Max Bid)</h2>
+          <div class="h-64 relative">
+            <canvas id="priceTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Outcome Ratio -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow">
+          <h2 class="text-lg font-bold text-white mb-4">Bid Win / Loss Breakdown</h2>
+          <div class="h-48 relative">
+            <canvas id="winLossChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Data Table -->
+    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow overflow-x-auto">
+      <h2 class="text-lg font-bold text-white mb-4">Logged Units</h2>
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-900 text-slate-400 uppercase font-semibold">
+          <tr>
+            <th class="p-3">Date</th>
+            <th class="p-3">Vehicle</th>
+            <th class="p-3">Chassis</th>
+            <th class="p-3">Color / km</th>
+            <th class="p-3">Venue / Score</th>
+            <th class="p-3">Your Bid</th>
+            <th class="p-3">Winning Price</th>
+            <th class="p-3">Status</th>
+            <th class="p-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody id="unitsTableBody" class="divide-y divide-slate-700">
+          <!-- Dynamic Content -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    let units = JSON.parse(localStorage.getItem('jdm_auction_units') || '[]');
+    let winLossChartInstance = null;
+    let priceTrendChartInstance = null;
+
+    // Set default date input to today
+    document.getElementById('auctionDate').valueAsDate = new Date();
+
+    function saveAndRender() {
+      localStorage.setItem('jdm_auction_units', JSON.stringify(units));
+      renderKPIs();
+      renderTable();
+      renderCharts();
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const newUnit = {
+        id: Date.now(),
+        make: document.getElementById('make').value,
+        model: document.getElementById('model').value,
+        chassis: document.getElementById('chassis').value.toUpperCase(),
+        year: document.getElementById('year').value,
+        colour: document.getElementById('colour').value,
+        mileage: Number(document.getElementById('mileage').value),
+        auctionHouse: document.getElementById('auctionHouse').value,
+        score: document.getElementById('score').value,
+        yourBid: Number(document.getElementById('yourBid').value),
+        winningPrice: Number(document.getElementById('winningPrice').value),
+        status: document.getElementById('status').value,
+        date: document.getElementById('auctionDate').value
+      };
+
+      units.push(newUnit);
+      saveAndRender();
+      e.target.reset();
+      document.getElementById('auctionDate').valueAsDate = new Date();
+    }
+
+    function deleteUnit(id) {
+      units = units.filter(u => u.id !== id);
+      saveAndRender();
+    }
+
+    function renderKPIs() {
+      const total = units.length;
+      const wonUnits = units.filter(u => u.status === 'WON');
+      const wonCount = wonUnits.length;
+      const winRate = total > 0 ? ((wonCount / total) * 100).toFixed(1) : '0.0';
+
+      let totalMargin = 0;
+      wonUnits.forEach(u => {
+        totalMargin += (u.yourBid - u.winningPrice);
+      });
+      const avgMargin = wonCount > 0 ? Math.round(totalMargin / wonCount) : 0;
+
+      document.getElementById('kpiTotal').innerText = total;
+      document.getElementById('kpiWon').innerText = wonCount;
+      document.getElementById('kpiWinRate').innerText = winRate + '%';
+      document.getElementById('kpiAvgMargin').innerText = '¥' + avgMargin.toLocaleString();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('unitsTableBody');
+      tbody.innerHTML = '';
+
+      if (units.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-500">No auction records added yet.</td></tr>`;
+        return;
+      }
+
+      const sorted = [...units].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      sorted.forEach(unit => {
+        const badgeColor = unit.status === 'WON' 
+          ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700' 
+          : unit.status === 'LOST' 
+          ? 'bg-red-900/50 text-red-400 border-red-700' 
+          : 'bg-amber-900/50 text-amber-400 border-amber-700';
+
+        const row = document.createElement('tr');
+        row.className = "hover:bg-slate-750 transition";
+        row.innerHTML = `
+          <td class="p-3 font-mono">${unit.date}</td>
+          <td class="p-3 font-semibold text-white">${unit.make} ${unit.model} (${unit.year})</td>
+          <td class="p-3 font-mono text-blue-300">${unit.chassis}</td>
+          <td class="p-3">${unit.colour} / ${unit.mileage.toLocaleString()} km</td>
+          <td class="p-3">${unit.auctionHouse} <span class="text-slate-400">(${unit.score})</span></td>
+          <td class="p-3 font-mono">¥${unit.yourBid.toLocaleString()}</td>
+          <td class="p-3 font-mono text-emerald-300">¥${unit.winningPrice.toLocaleString()}</td>
+          <td class="p-3"><span class="px-2 py-1 text-[10px] font-bold rounded border ${badgeColor}">${unit.status}</span></td>
+          <td class="p-3 text-right"><button onclick="deleteUnit(${unit.id})" class="text-red-400 hover:text-red-300 font-bold">Remove</button></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderCharts() {
+      // 1. Win/Loss Chart
+      const wonCount = units.filter(u => u.status === 'WON').length;
+      const lostCount = units.filter(u => u.status === 'LOST').length;
+      const passedCount = units.filter(u => u.status === 'PASSED').length;
+
+      if (winLossChartInstance) winLossChartInstance.destroy();
+      winLossChartInstance = new Chart(document.getElementById('winLossChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Won', 'Lost', 'Passed'],
+          datasets: [{
+            data: [wonCount, lostCount, passedCount],
+            backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'right', labels: { color: '#94A3B8' } } }
+        }
+      });
+
+      // 2. Price Trend Chart
+      const sortedByDate = [...units].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const labels = sortedByDate.map(u => `${u.chassis} (${u.date})`);
+      const winningPrices = sortedByDate.map(u => u.winningPrice);
+      const myBids = sortedByDate.map(u => u.yourBid);
+
+      if (priceTrendChartInstance) priceTrendChartInstance.destroy();
+      priceTrendChartInstance = new Chart(document.getElementById('priceTrendChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Winning Hammer Price (¥)',
+              data: winningPrices,
+              borderColor: '#3B82F6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Your Max Bid (¥)',
+              data: myBids,
+              borderColor: '#10B981',
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#94A3B8' }, grid: { color: '#334155' } },
+            y: { 
+              ticks: { 
+                color: '#94A3B8',
+                callback: val => '¥' + (val / 10000) + 'k'
+              }, 
+              grid: { color: '#334155' } 
+            }
+          },
+          plugins: { legend: { labels: { color: '#94A3B8' } } }
+        }
+      });
+    }
+
+    function loadSampleData() {
+      units = [
+        { id: 1, make: 'Nissan', model: 'Skyline GT-R', chassis: 'BNR34', year: '1999', colour: 'Bayside Blue', mileage: 62000, auctionHouse: 'USS Tokyo', score: '4.5', yourBid: 12500000, winningPrice: 13200000, status: 'LOST', date: '2026-08-10' },
+        { id: 2, make: 'Toyota', model: 'Supra RZ', chassis: 'JZA80', year: '1997', colour: 'Renaissance Red', mileage: 84000, auctionHouse: 'TAA Yokohama', score: '4', yourBid: 7800000, winningPrice: 7450000, status: 'WON', date: '2026-08-18' },
+        { id: 3, make: 'Honda', model: 'Civic Type R', chassis: 'EK9', year: '1998', colour: 'Championship White', mileage: 110000, auctionHouse: 'HAA Kobe', score: '3.5', yourBid: 3200000, winningPrice: 3100000, status: 'WON', date: '2026-09-02' },
+        { id: 4, make: 'Mazda', model: 'RX-7 Spirit R', chassis: 'FD3S', year: '2002', colour: 'Titanium Grey', mileage: 45000, auctionHouse: 'JU Gifu', score: '4.5', yourBid: 9500000, winningPrice: 10800000, status: 'LOST', date: '2026-09-15' },
+        { id: 5, make: 'Toyota', model: 'Supra RZ', chassis: 'JZA80', year: '1998', colour: 'Black', mileage: 92000, auctionHouse: 'USS Tokyo', score: '4', yourBid: 8100000, winningPrice: 7900000, status: 'WON', date: '2026-09-24' }
+      ];
+      saveAndRender();
+    }
+
+    function clearAllData() {
+      if (confirm('Clear all stored auction entries?')) {
+        units = [];
+        saveAndRender();
+      }
+    }
+
+    // Initial Render
+    saveAndRender();
+  </script>
+</body>
+</html>
